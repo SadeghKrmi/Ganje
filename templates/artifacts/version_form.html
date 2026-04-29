@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ action }} – {{ artifact.artifact_id }} – Ganje{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'vendor/easymde/easymde.min.css' %}" />
+{% endblock %}
+
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'artifact_list' %}">Explorer</a></li>
+    <li class="breadcrumb-item">
+      <a href="{% url 'artifact_detail' artifact.pk %}">{{ artifact.artifact_id }}</a>
+    </li>
+    {% if version %}
+    <li class="breadcrumb-item">
+      <a href="{% url 'version_detail' artifact.pk version.version_number %}">
+        v{{ version.version_number }}
+      </a>
+    </li>
+    {% endif %}
+    <li class="breadcrumb-item active">{{ action }}</li>
+  </ol>
+</nav>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-10">
+    <div class="form-card rounded-3 p-4">
+
+      <div class="d-flex align-items-start justify-content-between gap-2 mb-4">
+        <div>
+          <h1 class="h5 fw-bold mb-1">
+            <i class="bi bi-{% if version %}pencil{% else %}plus-circle{% endif %} me-2 text-primary"></i>
+            {{ action }}
+          </h1>
+          <div class="d-flex align-items-center gap-2">
+            <span class="artifact-id">{{ artifact.artifact_id }}</span>
+            <span class="text-muted small">{{ artifact.title }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0"
+                data-bs-toggle="modal" data-bs-target="#aiPromptModal">
+          <i class="bi bi-stars me-1"></i>Get AI prompt
+        </button>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <!-- Prompt -->
+        <div class="mb-3">
+          <label class="form-label fw-medium" for="{{ form.prompt.id_for_label }}">
+            <i class="bi bi-chat-square-quote me-1 text-primary"></i>
+            AI Prompt <span class="text-danger">*</span>
+          </label>
+          {{ form.prompt }}
+          <div class="form-text">The exact prompt you sent to the AI model. This lets you re-run the analysis later.</div>
+          {% if form.prompt.errors %}<div class="invalid-feedback d-block">{{ form.prompt.errors.as_text }}</div>{% endif %}
+        </div>
+
+        <!-- Analysis -->
+        <div class="mb-3">
+          <label class="form-label fw-medium" for="{{ form.analysis.id_for_label }}">
+            <i class="bi bi-file-earmark-text me-1 text-success"></i>
+            Analysis <span class="text-danger">*</span>
+          </label>
+          {{ form.analysis }}
+          <div class="form-text">
+            Use the toolbar to format. Full Markdown supported &mdash; bold, italic, headings, lists, code blocks, tables, side-by-side preview&hellip;
+          </div>
+          {% if form.analysis.errors %}<div class="invalid-feedback d-block">{{ form.analysis.errors.as_text }}</div>{% endif %}
+        </div>
+
+        <!-- Metadata row -->
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label fw-medium" for="{{ form.model_used.id_for_label }}">
+              <i class="bi bi-robot me-1"></i>AI Model
+            </label>
+            {{ form.model_used }}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-medium" for="{{ form.codebase_ref.id_for_label }}">
+              <i class="bi bi-git me-1"></i>Codebase Reference
+            </label>
+            {{ form.codebase_ref }}
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-4">
+          <label class="form-label fw-medium" for="{{ form.notes.id_for_label }}">
+            <i class="bi bi-sticky me-1 text-warning"></i>Personal Notes
+          </label>
+          {{ form.notes }}
+          <div class="form-text">Markdown supported. Add observations, follow-up questions, or caveats.</div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end">
+          <a href="{% url 'artifact_detail' artifact.pk %}" class="btn btn-outline-secondary">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Save Version
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/marked/marked.umd.min.js' %}"></script>
+<script src="{% static 'vendor/easymde/easymde.min.js' %}"></script>
+<script>
+(function () {
+  const textarea = document.getElementById('{{ form.analysis.id_for_label }}');
+  if (!textarea || typeof EasyMDE === 'undefined') return;
+
+  const easymde = new EasyMDE({
+    element: textarea,
+    autofocus: false,
+    spellChecker: false,
+    minHeight: '320px',
+    maxHeight: '60vh',
+    forceSync: true,
+    autoDownloadFontAwesome: false,
+    status: ['lines', 'words', 'cursor'],
+    previewClass: ['editor-preview', 'markdown-body'],
+    previewRender: function (plainText) {
+      if (typeof marked !== 'undefined') {
+        const html = marked.parse(plainText || '');
+        // run highlight.js on the preview after the next tick
+        setTimeout(() => {
+          document.querySelectorAll('.editor-preview pre code').forEach(el => {
+            if (typeof hljs !== 'undefined') hljs.highlightElement(el);
+          });
+        }, 0);
+        return html;
+      }
+      return plainText;
+    },
+    toolbar: [
+      'bold', 'italic', 'strikethrough', '|',
+      'heading-1', 'heading-2', 'heading-3', '|',
+      'quote', 'code', 'unordered-list', 'ordered-list', '|',
+      'link', 'image', 'table', 'horizontal-rule', '|',
+      'preview', 'side-by-side', 'fullscreen', '|',
+      'guide',
+    ],
+    shortcuts: {
+      togglePreview:    'Cmd-Alt-P',
+      toggleSideBySide: 'F9',
+      toggleFullScreen: 'F11',
+    },
+  });
+})();
+</script>
+{% endblock %}

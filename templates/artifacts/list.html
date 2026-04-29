@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% load markdown_extras %}
+
+{% block title %}Ganje – Research Tracking{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ────────────────────────────────────────────── -->
+<div class="mb-3">
+  <h1 class="h4 mb-0 fw-bold">Research Tracking</h1>
+  <p class="text-muted small mb-0">Document, version and re-run your codebase analyses</p>
+</div>
+
+<!-- ── Scope tabs ─────────────────────────────────────────────── -->
+<ul class="nav scope-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if current_scope == 'all' %}active{% endif %}"
+       href="?scope=all">
+      <i class="bi bi-globe2 me-1"></i>All visible
+      <span class="scope-count">{{ scope_counts.all }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if current_scope == 'mine' %}active{% endif %}"
+       href="?scope=mine">
+      <i class="bi bi-person me-1"></i>Created by me
+      <span class="scope-count">{{ scope_counts.mine }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if current_scope == 'shared' %}active{% endif %}"
+       href="?scope=shared">
+      <i class="bi bi-people me-1"></i>Shared with me
+      <span class="scope-count">{{ scope_counts.shared }}</span>
+    </a>
+  </li>
+</ul>
+
+<!-- ── Filter bar ─────────────────────────────────────────────── -->
+<form method="get" id="filter-form" class="mb-3">
+  <input type="hidden" name="scope" value="{{ current_scope }}" />
+  <div class="filter-bar rounded-3 p-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-4 col-xl-5">
+        {{ filter.form.q }}
+      </div>
+      <div class="col-6 col-md-2">
+        {{ filter.form.category }}
+      </div>
+      <div class="col-6 col-md-2">
+        {{ filter.form.codebase }}
+      </div>
+      <div class="col-6 col-md-2">
+        {{ filter.form.status }}
+      </div>
+      <div class="col-6 col-md-2 col-xl-1">
+        {{ filter.form.tag }}
+      </div>
+    </div>
+    <div class="d-flex justify-content-end mt-2 gap-2">
+      <a href="?scope={{ current_scope }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-x-lg me-1"></i>Clear
+      </a>
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="bi bi-search me-1"></i>Search
+      </button>
+    </div>
+  </div>
+</form>
+
+<!-- ── Count + sort row ───────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <span class="text-muted small">
+    <strong class="text-body">{{ page_obj.paginator.count }}</strong> artifact{{ page_obj.paginator.count|pluralize }}
+  </span>
+  <div class="d-flex align-items-center gap-2">
+    <label class="form-label mb-0 small text-muted">Sort:</label>
+    <select class="form-select form-select-sm sort-select" style="width:180px;" onchange="applySort(this)">
+      <option value="-updated_at" {% if current_sort == '-updated_at' %}selected{% endif %}>Last updated ↓</option>
+      <option value="updated_at"  {% if current_sort == 'updated_at'  %}selected{% endif %}>Last updated ↑</option>
+      <option value="-created_at" {% if current_sort == '-created_at' %}selected{% endif %}>Created ↓</option>
+      <option value="created_at"  {% if current_sort == 'created_at'  %}selected{% endif %}>Created ↑</option>
+      <option value="title"       {% if current_sort == 'title'       %}selected{% endif %}>Title A→Z</option>
+      <option value="-title"      {% if current_sort == '-title'      %}selected{% endif %}>Title Z→A</option>
+      <option value="-id"         {% if current_sort == '-id'         %}selected{% endif %}>ID ↓</option>
+      <option value="id"          {% if current_sort == 'id'          %}selected{% endif %}>ID ↑</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── Artifact cards ─────────────────────────────────────────── -->
+<div class="artifact-list">
+  {% for artifact in page_obj %}
+  <div class="artifact-card rounded-3 mb-3 p-0 position-relative">
+    <a href="{% url 'artifact_detail' artifact.pk %}" class="artifact-card-link stretched-link"></a>
+
+    <div class="p-3 pb-2">
+      <!-- Top row: ID + status badge -->
+      <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="artifact-id">{{ artifact.artifact_id }}</span>
+          <span class="artifact-status-badge status-{{ artifact.status }}">
+            {{ artifact.get_status_display }}
+          </span>
+          <span class="visibility-badge vis-{{ artifact.visibility }}"
+                title="{{ artifact.get_visibility_display }}">
+            <i class="bi {{ artifact.visibility_icon }} me-1"></i>{{ artifact.get_visibility_display|cut:" (only me)"|cut:" (selected users)"|cut:" (everyone)" }}
+          </span>
+          {% if artifact.version_count %}
+          <span class="version-pill">
+            <i class="bi bi-layers me-1"></i>v{{ artifact.latest_version.version_number }}
+          </span>
+          {% endif %}
+        </div>
+        <!-- Action buttons (above stretched-link so they stay clickable) -->
+        <div class="d-flex gap-1 position-relative" style="z-index:1">
+          {% if artifact.latest_version %}
+          <a href="{% url 'version_export' artifact.pk artifact.latest_version.version_number %}"
+             class="btn btn-xs btn-outline-success" title="Export latest version as Markdown">
+            <i class="bi bi-download"></i>
+          </a>
+          {% endif %}
+          {% if request.user.is_superuser or artifact.owner_id == request.user.pk %}
+          <a href="{% url 'version_add' artifact.pk %}"
+             class="btn btn-xs btn-outline-primary" title="Add new analysis version">
+            <i class="bi bi-plus-circle"></i>
+          </a>
+          <a href="{% url 'artifact_edit' artifact.pk %}"
+             class="btn btn-xs btn-outline-secondary" title="Edit artifact">
+            <i class="bi bi-pencil"></i>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Title -->
+      <h2 class="artifact-title mb-2">{{ artifact.title }}</h2>
+
+      <!-- Description excerpt -->
+      {% if artifact.description %}
+      <p class="artifact-desc text-muted small mb-2">{{ artifact.description|truncatechars:160 }}</p>
+      {% endif %}
+
+      <!-- Badges row -->
+      <div class="d-flex flex-wrap gap-1 align-items-center">
+        {% if artifact.category %}
+        <span class="badge-category">
+          <i class="bi bi-folder me-1"></i>{{ artifact.category }}
+        </span>
+        {% endif %}
+        {% if artifact.codebase %}
+        <span class="badge-codebase">
+          <i class="bi bi-code-slash me-1"></i>{{ artifact.codebase }}
+        </span>
+        {% endif %}
+        {% for tag in artifact.tags.all %}
+        <span class="badge-tag">{{ tag.name }}</span>
+        {% endfor %}
+        {% if artifact.latest_version and artifact.latest_version.model_used %}
+        <span class="badge-model ms-auto">
+          <i class="bi bi-robot me-1"></i>{{ artifact.latest_version.model_used }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Footer: owner + timestamps -->
+    <div class="artifact-card-footer px-3 py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2 small">
+        {% if artifact.owner %}
+        <span class="user-avatar-xs"
+              title="Owner: {{ artifact.owner.get_full_name|default:artifact.owner.email }}">
+          {{ artifact.owner.first_name|default:artifact.owner.email|first|upper }}
+        </span>
+        <span class="text-muted">
+          {% if artifact.owner_id == request.user.pk %}you
+          {% else %}{{ artifact.owner.get_full_name|default:artifact.owner.email }}{% endif %}
+        </span>
+        {% if artifact.visibility == 'shared' and artifact.shared_with.all %}
+        <span class="text-muted x-small">
+          &middot; shared with {{ artifact.shared_with.all|length }} user{{ artifact.shared_with.all|length|pluralize }}
+        </span>
+        {% endif %}
+        {% else %}
+        <span class="text-muted small"><i class="bi bi-person-x me-1"></i>no owner</span>
+        {% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-3 small text-muted">
+        <span><i class="bi bi-layers me-1"></i>{{ artifact.version_count }}v</span>
+        <span><i class="bi bi-clock me-1"></i>{{ artifact.updated_at|timesince }} ago</span>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state text-center py-5">
+    <div class="empty-icon mb-3"><i class="bi bi-journal-x"></i></div>
+    {% if current_scope == 'shared' %}
+    <h3 class="h5 fw-semibold">No artifacts shared with you yet</h3>
+    <p class="text-muted">Ask a colleague to share one of their artifacts with you.</p>
+    {% elif current_scope == 'mine' %}
+    <h3 class="h5 fw-semibold">You haven't created any artifacts yet</h3>
+    <p class="text-muted">Document your first study to get started.</p>
+    <a href="{% url 'artifact_create' %}" class="btn btn-primary mt-2">
+      <i class="bi bi-plus-lg me-1"></i>Create Artifact
+    </a>
+    {% else %}
+    <h3 class="h5 fw-semibold">No artifacts found</h3>
+    <p class="text-muted">Try adjusting the filters or create your first research artifact.</p>
+    <a href="{% url 'artifact_create' %}" class="btn btn-primary mt-2">
+      <i class="bi bi-plus-lg me-1"></i>Create Artifact
+    </a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Pagination ─────────────────────────────────────────────── -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+    <li class="page-item">
+      <a class="page-link" href="?{% include 'partials/querystring.html' with page=page_obj.previous_page_number %}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+      <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+      <li class="page-item">
+        <a class="page-link" href="?{% include 'partials/querystring.html' with page=num %}">{{ num }}</a>
+      </li>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <li class="page-item">
+      <a class="page-link" href="?{% include 'partials/querystring.html' with page=page_obj.next_page_number %}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applySort(sel) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('sort', sel.value);
+  url.searchParams.delete('page');
+  window.location.href = url.toString();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Ganje – Research Tracking{% endblock %}</title>
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon"         href="{% static 'assets/img/favicons/favicon.ico' %}" />
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'assets/img/favicons/favicon-16x16.png' %}" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'assets/img/favicons/favicon-32x32.png' %}" />
+  <link rel="icon" type="image/png" sizes="96x96" href="{% static 'assets/img/favicons/favicon-96x96.png' %}" />
+  <link rel="apple-touch-icon" sizes="180x180"  href="{% static 'assets/img/favicons/apple-touch-icon.png' %}" />
+  <link rel="manifest" href="{% static 'assets/img/favicons/site.webmanifest' %}" />
+
+  <!-- Bootstrap 5.3.8 -->
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" />
+  <!-- Bootstrap Icons 1.11.3 -->
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" />
+  <!-- Highlight.js 11.9.0 themes -->
+  <link rel="stylesheet" href="{% static 'vendor/highlightjs/styles/github.min.css' %}" id="hljs-light-theme" />
+  <link rel="stylesheet" href="{% static 'vendor/highlightjs/styles/github-dark.min.css' %}" id="hljs-dark-theme" disabled />
+
+  <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="navbar navbar-expand-lg app-navbar sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'artifact_list' %}">
+      <span class="brand-icon">
+        <img src="{% static 'assets/img/ganje-icon-transparent.png' %}" alt="Ganje"
+             class="brand-icon-img" />
+      </span>
+      <span class="fw-bold">Ganje</span>
+      <span class="brand-sub text-muted small ms-1 d-none d-sm-inline">Research Tracking</span>
+    </a>
+
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
+            data-bs-target="#navMain" aria-controls="navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'artifact_list' %}active{% endif %}"
+             href="{% url 'artifact_list' %}">
+            <i class="bi bi-list-ul me-1"></i>Explorer
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'stats' %}active{% endif %}"
+             href="{% url 'stats' %}">
+            <i class="bi bi-bar-chart-line me-1"></i>Stats
+          </a>
+        </li>
+        {% if request.user.is_authenticated %}
+        <li class="nav-item ms-lg-2">
+          <button type="button" class="btn btn-outline-primary btn-sm px-3"
+                  data-bs-toggle="modal" data-bs-target="#aiPromptModal"
+                  title="Copy a prompt to turn a long AI chat into a Ganje artifact">
+            <i class="bi bi-stars me-1"></i>AI Prompts
+          </button>
+        </li>
+        {% endif %}
+        <li class="nav-item ms-lg-2">
+          <a href="{% url 'artifact_create' %}" class="btn btn-primary btn-sm px-3">
+            <i class="bi bi-plus-lg me-1"></i>New Artifact
+          </a>
+        </li>
+        <li class="nav-item ms-lg-2">
+          <button class="btn btn-outline-secondary btn-sm px-2" id="theme-toggle"
+                  title="Toggle dark/light mode">
+            <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+          </button>
+        </li>
+
+        {% if request.user.is_authenticated %}
+        <li class="nav-item dropdown ms-lg-2">
+          <a class="user-dropdown-toggle d-flex align-items-center gap-2 text-decoration-none"
+             href="#" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="user-avatar">{{ request.user.first_name|default:request.user.email|first|upper }}</span>
+            <span class="d-none d-md-inline small fw-medium text-body">
+              {{ request.user.get_full_name|default:request.user.email }}
+            </span>
+            <i class="bi bi-chevron-down small text-muted"></i>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
+            <li class="px-3 py-2 small">
+              <div class="fw-semibold text-truncate">{{ request.user.get_full_name|default:request.user.email }}</div>
+              <div class="text-muted text-truncate">{{ request.user.email }}</div>
+            </li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            <li><a class="dropdown-item" href="{% url 'profile' %}">
+              <i class="bi bi-person me-2"></i>My account
+            </a></li>
+            <li><a class="dropdown-item" href="{% url 'change_password' %}">
+              <i class="bi bi-key me-2"></i>Change password
+            </a></li>
+            {% if request.user.is_staff %}
+            <li><a class="dropdown-item" href="{% url 'admin:index' %}">
+              <i class="bi bi-gear me-2"></i>Admin site
+            </a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider my-1" /></li>
+            <li>
+              <form action="{% url 'logout' %}" method="post" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item text-danger">
+                  <i class="bi bi-box-arrow-right me-2"></i>Sign out
+                </button>
+              </form>
+            </li>
+          </ul>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Flash messages ─────────────────────────────────────────── -->
+{% if messages %}
+<div class="container-fluid px-4 pt-3">
+  {% for msg in messages %}
+  <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── Main content ───────────────────────────────────────────── -->
+<main class="{% block main_class %}container-fluid px-4 py-4{% endblock %}">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer class="app-footer text-center text-muted small py-3 mt-auto">
+  Ganje Research Tracking &mdash; powered by Django &amp; Bootstrap 5
+</footer>
+
+{% if request.user.is_authenticated %}
+{% include "partials/ai_prompt_modal.html" %}
+{% endif %}
+
+<!-- Bootstrap 5.3.8 JS -->
+<script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+<!-- Highlight.js 11.9.0 -->
+<script src="{% static 'vendor/highlightjs/highlight.min.js' %}"></script>
+<script src="{% static 'js/app.js' %}"></script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

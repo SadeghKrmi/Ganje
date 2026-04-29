@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}My Account – Ganje{% endblock %}
+
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'artifact_list' %}">Explorer</a></li>
+    <li class="breadcrumb-item active">Account</li>
+  </ol>
+</nav>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8 col-xl-7">
+
+    <!-- ── Header card ──────────────────────────────────────── -->
+    <div class="form-card rounded-3 p-4 mb-4">
+      <div class="d-flex align-items-center gap-3">
+        <div class="user-avatar-lg">{{ request.user.first_name|default:request.user.email|first|upper }}</div>
+        <div class="flex-grow-1 min-w-0">
+          <h1 class="h5 fw-bold mb-1 text-truncate">
+            {{ request.user.get_full_name|default:request.user.email }}
+          </h1>
+          <p class="text-muted small mb-1 text-truncate">
+            <i class="bi bi-envelope me-1"></i>{{ request.user.email }}
+          </p>
+          <div class="d-flex gap-2 flex-wrap">
+            {% if request.user.is_superuser %}
+            <span class="badge-tag" style="background:#fef3e2;color:#92400e">
+              <i class="bi bi-shield-check me-1"></i>Superuser
+            </span>
+            {% elif request.user.is_staff %}
+            <span class="badge-tag" style="background:#e7f0ff;color:#1a56db">
+              <i class="bi bi-person-badge me-1"></i>Staff
+            </span>
+            {% endif %}
+            <span class="badge-tag">
+              <i class="bi bi-calendar me-1"></i>Joined {{ request.user.date_joined|date:"M j, Y" }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Profile details ──────────────────────────────────── -->
+    <div class="form-card rounded-3 p-4 mb-4">
+      <h2 class="h6 fw-bold mb-3"><i class="bi bi-person me-2 text-primary"></i>Profile details</h2>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label fw-medium" for="{{ form.first_name.id_for_label }}">First name</label>
+            {{ form.first_name }}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-medium" for="{{ form.last_name.id_for_label }}">Last name</label>
+            {{ form.last_name }}
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-medium" for="{{ form.email.id_for_label }}">Email</label>
+          {{ form.email }}
+          {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors.as_text }}</div>{% endif %}
+        </div>
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── Security ────────────────────────────────────────── -->
+    <div class="form-card rounded-3 p-4">
+      <h2 class="h6 fw-bold mb-3"><i class="bi bi-shield-lock me-2 text-primary"></i>Security</h2>
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="fw-medium">Password</div>
+          <div class="text-muted small">Change your account password.</div>
+        </div>
+        <a href="{% url 'change_password' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-key me-1"></i>Change
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

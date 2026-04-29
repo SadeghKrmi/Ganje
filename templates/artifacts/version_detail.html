@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load markdown_extras %}
+
+{% block title %}{{ artifact.artifact_id }} v{{ version.version_number }} – {{ artifact.title }}{% endblock %}
+
+{% block content %}
+
+<!-- ── Breadcrumb ─────────────────────────────────────────────── -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'artifact_list' %}">Explorer</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'artifact_detail' artifact.pk %}">{{ artifact.artifact_id }}</a></li>
+    <li class="breadcrumb-item active">v{{ version.version_number }}</li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <div class="col-12 col-lg-3">
+    <div class="detail-sidebar rounded-3 p-4">
+
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <a href="{% url 'artifact_detail' artifact.pk %}" class="artifact-id fs-6 text-decoration-none">
+          {{ artifact.artifact_id }}
+        </a>
+      </div>
+      <h1 class="h6 fw-bold mb-3">{{ artifact.title }}</h1>
+
+      {% if artifact.tags.all %}
+      <div class="d-flex flex-wrap gap-1 mb-3">
+        {% for tag in artifact.tags.all %}
+        <span class="badge-tag">{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="version-meta-block rounded-2 p-3 mb-3">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="version-badge-large">v{{ version.version_number }}</span>
+          {% if version.version_number == all_versions.first.version_number %}
+          <span class="badge bg-success-subtle text-success-emphasis border-0 small">Latest</span>
+          {% endif %}
+        </div>
+        <dl class="detail-meta small mb-0">
+          <dt><i class="bi bi-calendar me-1"></i>Date</dt>
+          <dd>{{ version.created_at|date:"M j, Y H:i" }}</dd>
+          {% if version.model_used %}
+          <dt><i class="bi bi-robot me-1"></i>AI Model</dt>
+          <dd>{{ version.model_used }}</dd>
+          {% endif %}
+          {% if version.codebase_ref %}
+          <dt><i class="bi bi-git me-1"></i>Codebase Ref</dt>
+          <dd class="font-monospace">{{ version.codebase_ref }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+
+      <!-- Version navigation -->
+      <div class="mb-3">
+        <div class="section-label mb-2">All Versions</div>
+        <div class="version-nav-list">
+          {% for v in all_versions %}
+          <a href="{% url 'version_detail' artifact.pk v.version_number %}"
+             class="version-nav-item{% if v.version_number == version.version_number %} active{% endif %}">
+            <span class="version-badge">v{{ v.version_number }}</span>
+            <span class="small text-muted ms-2">{{ v.created_at|date:"M j, Y" }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="d-flex flex-column gap-2">
+        {% if can_edit %}
+        <a href="{% url 'version_add' artifact.pk %}" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-circle me-1"></i>Add Version
+        </a>
+        <a href="{% url 'version_edit' artifact.pk version.version_number %}"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-pencil me-1"></i>Edit Version
+        </a>
+        {% endif %}
+        <a href="{% url 'version_export' artifact.pk version.version_number %}"
+           class="btn btn-outline-success btn-sm" title="Download as Markdown file">
+          <i class="bi bi-download me-1"></i>Export Markdown
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main: prompt + analysis ────────────────────────────── -->
+  <div class="col-12 col-lg-9">
+
+    <!-- Prompt -->
+    <div class="version-section-card rounded-3 p-4 mb-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="h6 fw-semibold mb-0">
+          <i class="bi bi-chat-square-quote me-2 text-primary"></i>Prompt
+        </h2>
+        <button class="btn btn-xs btn-outline-secondary copy-btn"
+                data-target="prompt-text" title="Copy prompt">
+          <i class="bi bi-clipboard me-1"></i>Copy
+        </button>
+      </div>
+      <pre id="prompt-text" class="prompt-block p-3 rounded mb-0">{{ version.prompt }}</pre>
+    </div>
+
+    <!-- Analysis -->
+    <div class="version-section-card rounded-3 p-4 mb-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="h6 fw-semibold mb-0">
+          <i class="bi bi-file-earmark-text me-2 text-success"></i>Analysis
+        </h2>
+        <div class="d-flex gap-2">
+          <button class="btn btn-xs btn-outline-secondary" id="toggle-raw" title="Toggle raw markdown">
+            <i class="bi bi-markdown me-1"></i>Raw
+          </button>
+          <button class="btn btn-xs btn-outline-secondary copy-btn"
+                  data-target="raw-analysis" title="Copy raw markdown">
+            <i class="bi bi-clipboard me-1"></i>Copy
+          </button>
+        </div>
+      </div>
+      <div id="rendered-analysis" class="markdown-body">
+        {{ version.analysis|render_markdown }}
+      </div>
+      <pre id="raw-analysis" class="prompt-block p-3 rounded mb-0 d-none">{{ version.analysis }}</pre>
+    </div>
+
+    <!-- Notes -->
+    {% if version.notes %}
+    <div class="version-section-card rounded-3 p-4">
+      <h2 class="h6 fw-semibold mb-3">
+        <i class="bi bi-sticky me-2 text-warning"></i>Notes
+      </h2>
+      <div class="markdown-body">{{ version.notes|render_markdown }}</div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Copy button
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.target);
+    navigator.clipboard.writeText(target.textContent).then(() => {
+      btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Copied!';
+      setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy', 2000);
+    });
+  });
+});
+
+// Toggle raw markdown
+const toggleRaw = document.getElementById('toggle-raw');
+const rendered  = document.getElementById('rendered-analysis');
+const raw       = document.getElementById('raw-analysis');
+if (toggleRaw) {
+  toggleRaw.addEventListener('click', () => {
+    const showingRaw = !raw.classList.contains('d-none');
+    raw.classList.toggle('d-none', showingRaw);
+    rendered.classList.toggle('d-none', !showingRaw);
+    toggleRaw.innerHTML = showingRaw
+      ? '<i class="bi bi-markdown me-1"></i>Raw'
+      : '<i class="bi bi-eye me-1"></i>Rendered';
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% load markdown_extras %}
+
+{% block title %}{{ artifact.artifact_id }} – {{ artifact.title }}{% endblock %}
+
+{% block content %}
+
+<!-- ── Breadcrumb ─────────────────────────────────────────────── -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'artifact_list' %}">Explorer</a></li>
+    <li class="breadcrumb-item active">{{ artifact.artifact_id }}</li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+
+  <!-- ── Left column: artifact meta ──────────────────────────── -->
+  <div class="col-12 col-lg-4 col-xl-3">
+    <div class="detail-sidebar rounded-3 p-4">
+
+      <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <span class="artifact-id fs-6">{{ artifact.artifact_id }}</span>
+        <span class="artifact-status-badge status-{{ artifact.status }}">
+          {{ artifact.get_status_display }}
+        </span>
+        <span class="visibility-badge vis-{{ artifact.visibility }}"
+              title="{{ artifact.get_visibility_display }}">
+          <i class="bi {{ artifact.visibility_icon }} me-1"></i>{{ artifact.get_visibility_display|cut:" (only me)"|cut:" (selected users)"|cut:" (everyone)" }}
+        </span>
+      </div>
+      <h1 class="h5 fw-bold mb-3">{{ artifact.title }}</h1>
+
+      {% if artifact.description %}
+      <p class="text-muted small mb-3">{{ artifact.description }}</p>
+      {% endif %}
+
+      <!-- Owner block -->
+      {% if artifact.owner %}
+      <div class="owner-block d-flex align-items-center gap-2 mb-3 p-2 rounded-2">
+        <span class="user-avatar-sm">
+          {{ artifact.owner.first_name|default:artifact.owner.email|first|upper }}
+        </span>
+        <div class="min-w-0 flex-grow-1">
+          <div class="x-small text-muted text-uppercase fw-semibold" style="letter-spacing:.4px">Owner</div>
+          <div class="small text-truncate fw-medium">
+            {% if artifact.owner_id == request.user.pk %}
+              You
+            {% else %}
+              {{ artifact.owner.get_full_name|default:artifact.owner.email }}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Shared-with block -->
+      {% if artifact.visibility == 'shared' and artifact.shared_with.all %}
+      <div class="mb-3">
+        <div class="section-label mb-2"><i class="bi bi-people me-1"></i>Shared with</div>
+        <div class="d-flex flex-wrap gap-1">
+          {% for u in artifact.shared_with.all %}
+          <span class="shared-with-chip" title="{{ u.email }}">
+            <span class="user-avatar-xs">{{ u.first_name|default:u.email|first|upper }}</span>
+            {{ u.get_full_name|default:u.email }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% elif artifact.visibility == 'public' %}
+      <div class="alert alert-success py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-globe"></i>
+        <span>Visible to <strong>everyone</strong> in this Ganje instance.</span>
+      </div>
+      {% elif artifact.visibility == 'private' %}
+      <div class="alert alert-secondary py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-lock"></i>
+        <span>Private &mdash; only you{% if not artifact.owner_id == request.user.pk %} (and the owner){% endif %} can see this.</span>
+      </div>
+      {% endif %}
+
+      <dl class="detail-meta small mb-3">
+        {% if artifact.category %}
+        <dt><i class="bi bi-folder me-1"></i>Category</dt>
+        <dd>{{ artifact.category }}</dd>
+        {% endif %}
+        {% if artifact.codebase %}
+        <dt><i class="bi bi-code-slash me-1"></i>Codebase</dt>
+        <dd class="font-monospace">{{ artifact.codebase }}</dd>
+        {% endif %}
+        <dt><i class="bi bi-layers me-1"></i>Versions</dt>
+        <dd>{{ artifact.version_count }}</dd>
+        <dt><i class="bi bi-calendar me-1"></i>Created</dt>
+        <dd>{{ artifact.created_at|date:"M j, Y" }}</dd>
+        <dt><i class="bi bi-clock-history me-1"></i>Updated</dt>
+        <dd>{{ artifact.updated_at|date:"M j, Y H:i" }}</dd>
+        <dt><i class="bi bi-fingerprint me-1"></i>UID</dt>
+        <dd class="font-monospace text-truncate" title="{{ artifact.uid }}">{{ artifact.uid }}</dd>
+      </dl>
+
+      <!-- Tags -->
+      {% if artifact.tags.all %}
+      <div class="d-flex flex-wrap gap-1 mb-3">
+        {% for tag in artifact.tags.all %}
+        <span class="badge-tag">{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="d-flex flex-column gap-2 mt-3">
+        {% if can_edit %}
+        <button type="button" class="btn btn-magic btn-sm"
+                data-bs-toggle="modal" data-bs-target="#magicPromptModal">
+          <i class="bi bi-magic me-1"></i>Generate AI Prompt
+        </button>
+        <a href="{% url 'version_add' artifact.pk %}" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-circle me-1"></i>Add New Version
+        </a>
+        <a href="{% url 'artifact_edit' artifact.pk %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-pencil me-1"></i>Edit / Share
+        </a>
+        <a href="{% url 'artifact_delete' artifact.pk %}" class="btn btn-outline-danger btn-sm">
+          <i class="bi bi-trash me-1"></i>Delete Artifact
+        </a>
+        {% else %}
+        <div class="alert alert-info small mb-0 py-2 px-3">
+          <i class="bi bi-info-circle me-1"></i>
+          Read-only view &mdash; only the owner can edit or add versions.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right column: versions ──────────────────────────────── -->
+  <div class="col-12 col-lg-8 col-xl-9">
+
+    {% if not versions %}
+    <div class="empty-state text-center py-5 rounded-3">
+      <div class="empty-icon mb-3"><i class="bi bi-file-earmark-plus"></i></div>
+      <h3 class="h5">No versions yet</h3>
+      <p class="text-muted">Add your first analysis version to get started.</p>
+      <a href="{% url 'version_add' artifact.pk %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Add Version
+      </a>
+    </div>
+    {% else %}
+
+    <!-- Latest version highlight -->
+    {% if latest %}
+    <div class="version-latest-card rounded-3 p-4 mb-4">
+      <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="version-badge-large">v{{ latest.version_number }}</span>
+          <span class="text-muted small">Latest &middot; {{ latest.created_at|date:"M j, Y H:i" }}</span>
+          {% if latest.model_used %}
+          <span class="badge-model"><i class="bi bi-robot me-1"></i>{{ latest.model_used }}</span>
+          {% endif %}
+          {% if latest.codebase_ref %}
+          <span class="badge-codebase font-monospace">
+            <i class="bi bi-git me-1"></i>{{ latest.codebase_ref|truncatechars:12 }}
+          </span>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+          <a href="{% url 'version_export' artifact.pk latest.version_number %}"
+             class="btn btn-sm btn-outline-success" title="Download as Markdown file">
+            <i class="bi bi-download me-1"></i>Export
+          </a>
+          <a href="{% url 'version_detail' artifact.pk latest.version_number %}"
+             class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-arrows-fullscreen me-1"></i>Full view
+          </a>
+        </div>
+      </div>
+
+      <!-- Prompt preview -->
+      <div class="mb-3">
+        <div class="section-label mb-1"><i class="bi bi-chat-square-quote me-1"></i>Prompt</div>
+        <div class="prompt-preview rounded p-3 font-monospace small">{{ latest.prompt }}</div>
+      </div>
+
+      <!-- Analysis preview (first 800 chars rendered as markdown) -->
+      <div>
+        <div class="section-label mb-1"><i class="bi bi-file-earmark-text me-1"></i>Analysis</div>
+        <div class="markdown-body">
+          {{ latest.analysis|render_markdown }}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Version history list -->
+    {% if versions|length > 1 %}
+    <h2 class="h6 fw-semibold text-muted mb-2">
+      <i class="bi bi-clock-history me-1"></i>Version History
+    </h2>
+    <div class="version-history-list">
+      {% for v in versions %}
+      {% if not forloop.first %}
+      <div class="version-history-item position-relative d-flex align-items-center justify-content-between p-3 rounded-3 mb-2">
+        <a href="{% url 'version_detail' artifact.pk v.version_number %}"
+           class="stretched-link text-decoration-none"></a>
+        <div class="d-flex align-items-center gap-3">
+          <span class="version-badge">v{{ v.version_number }}</span>
+          <div>
+            <div class="small fw-medium text-body">{{ v.created_at|date:"M j, Y H:i" }}</div>
+            <div class="text-muted x-small">
+              {% if v.model_used %}{{ v.model_used }}{% endif %}
+              {% if v.codebase_ref %}&nbsp;&middot;&nbsp;<span class="font-monospace">{{ v.codebase_ref|truncatechars:16 }}</span>{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2 position-relative" style="z-index:1">
+          {% if v.notes %}<i class="bi bi-sticky text-warning" title="Has notes"></i>{% endif %}
+          <a href="{% url 'version_export' artifact.pk v.version_number %}"
+             class="btn btn-xs btn-outline-success" title="Download as Markdown file">
+            <i class="bi bi-download"></i>
+          </a>
+          <i class="bi bi-chevron-right text-muted"></i>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+  </div>
+</div>
+
+{# ── Magic Prompt modal (only for owners) ──────────────────── #}
+{% if can_edit %}
+<div class="modal fade" id="magicPromptModal" tabindex="-1" aria-labelledby="magicPromptLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content ai-prompt-modal">
+
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="magicPromptLabel">
+          <i class="bi bi-magic text-magic"></i>
+          Magic Prompt &mdash; <span class="text-muted">{{ artifact.artifact_id }}</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert alert-magic d-flex gap-2 align-items-start small mb-3">
+          <i class="bi bi-info-circle mt-1"></i>
+          <div>
+            This prompt has been auto-built from <strong>this artifact's metadata</strong>
+            {% if latest %}plus the analysis from
+            <strong>v{{ latest.version_number }}</strong> for context{% endif %}.
+            Copy it, paste into your AI tool, then bring the response back via
+            <strong>Add New Version</strong>.
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge-tag"><i class="bi bi-card-text me-1"></i>{{ artifact.title|truncatechars:60 }}</span>
+            {% if artifact.codebase %}<span class="badge-codebase font-monospace"><i class="bi bi-code-slash me-1"></i>{{ artifact.codebase }}</span>{% endif %}
+            {% if latest %}<span class="version-badge">v{{ latest.version_number }} → next</span>
+            {% else %}<span class="version-badge">first version</span>{% endif %}
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-magic copy-magic-btn"
+                    data-target="magic-prompt-text">
+              <i class="bi bi-clipboard me-1"></i>Copy prompt
+            </button>
+            <a href="{% url 'version_add' artifact.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-arrow-right-circle me-1"></i>Open Add-Version form
+            </a>
+          </div>
+        </div>
+
+<pre class="ai-prompt-block" id="magic-prompt-text">{{ magic_prompt }}</pre>
+      </div>
+
+      <div class="modal-footer justify-content-between flex-wrap gap-2">
+        <small class="text-muted">
+          Tip: also paste this prompt into the <strong>Prompt</strong> field of the
+          new version so you can re-run the same analysis later.
+        </small>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll('.copy-magic-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      navigator.clipboard.writeText(target.textContent).then(() => {
+        const original = btn.innerHTML;
+        btn.classList.add('copied');
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Copied!';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = original;
+        }, 2200);
+      });
+    });
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}

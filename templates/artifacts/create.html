@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}{% if artifact %}Edit {{ artifact.artifact_id }}{% else %}New Artifact{% endif %} – Ganje{% endblock %}
+
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'artifact_list' %}">Explorer</a></li>
+    {% if artifact %}
+    <li class="breadcrumb-item">
+      <a href="{% url 'artifact_detail' artifact.pk %}">{{ artifact.artifact_id }}</a>
+    </li>
+    {% endif %}
+    <li class="breadcrumb-item active">{{ action }}</li>
+  </ol>
+</nav>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8 col-xl-7">
+    <div class="form-card rounded-3 p-4">
+      <div class="d-flex align-items-start justify-content-between gap-2 mb-4">
+        <h1 class="h5 fw-bold mb-0">
+          <i class="bi bi-{% if artifact %}pencil{% else %}plus-circle{% endif %} me-2 text-primary"></i>
+          {{ action }} Artifact
+        </h1>
+        {% if not artifact %}
+        <button type="button" class="btn btn-sm btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#aiPromptModal">
+          <i class="bi bi-stars me-1"></i>Get AI prompt
+        </button>
+        {% endif %}
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label fw-medium" for="{{ form.title.id_for_label }}">
+            Study Topic / Title <span class="text-danger">*</span>
+          </label>
+          {{ form.title }}
+          {% if form.title.errors %}
+          <div class="invalid-feedback d-block">{{ form.title.errors.as_text }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-medium" for="{{ form.description.id_for_label }}">
+            Description
+          </label>
+          {{ form.description }}
+          <div class="form-text">Brief overview of the topic being studied.</div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label fw-medium" for="{{ form.category.id_for_label }}">
+              Category
+            </label>
+            {{ form.category }}
+            <div class="form-text">e.g. Architecture, Performance, Security</div>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-medium" for="{{ form.codebase.id_for_label }}">
+              Codebase
+            </label>
+            {{ form.codebase }}
+            <div class="form-text">Name or path of the codebase analysed.</div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-medium" for="{{ form.tags_input.id_for_label }}">
+            Tags
+          </label>
+          {{ form.tags_input }}
+          <div class="form-text">Comma-separated. e.g. <code>registry, handler, context</code></div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-medium" for="{{ form.status.id_for_label }}">
+            Status
+          </label>
+          {{ form.status }}
+        </div>
+
+        <!-- ── Visibility & sharing ──────────────────────────── -->
+        <hr class="my-4" />
+        <h2 class="h6 fw-bold mb-3">
+          <i class="bi bi-shield-lock me-2 text-primary"></i>Visibility &amp; Sharing
+        </h2>
+
+        <div class="mb-3 visibility-group" data-current="{{ form.visibility.value|default:'private' }}">
+          {% for choice in form.visibility %}
+          <label class="visibility-option" data-value="{{ choice.data.value }}">
+            {{ choice.tag }}
+            <div class="vis-option-body">
+              {% if choice.data.value == 'private' %}
+              <div class="vis-option-title"><i class="bi bi-lock me-1"></i>Private</div>
+              <div class="vis-option-desc">Only you can see this artifact.</div>
+              {% elif choice.data.value == 'shared' %}
+              <div class="vis-option-title"><i class="bi bi-people me-1"></i>Shared with selected users</div>
+              <div class="vis-option-desc">Pick one or more users below who will be able to view it.</div>
+              {% elif choice.data.value == 'public' %}
+              <div class="vis-option-title"><i class="bi bi-globe me-1"></i>Public</div>
+              <div class="vis-option-desc">Visible to every user of this Ganje instance.</div>
+              {% else %}
+              <div class="vis-option-title">{{ choice.choice_label }}</div>
+              {% endif %}
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="mb-4 shared-with-block" id="shared-with-block">
+          <label class="form-label fw-medium" for="user-picker-search">
+            <i class="bi bi-person-plus me-1"></i>Share with users
+          </label>
+
+          <div class="user-picker" id="user-picker">
+            <div class="user-picker-chips" id="user-picker-chips" aria-live="polite">
+              <span class="user-picker-empty text-muted small">No users selected yet&hellip;</span>
+            </div>
+            <div class="user-picker-search-wrap position-relative">
+              <i class="bi bi-search user-picker-search-icon"></i>
+              <input type="text" class="form-control user-picker-search"
+                     id="user-picker-search"
+                     placeholder="Search by name or email&hellip;"
+                     autocomplete="off"
+                     aria-controls="user-picker-dropdown" />
+              <div class="user-picker-dropdown d-none" id="user-picker-dropdown" role="listbox">
+                <!-- populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          {# the real form widget — visually hidden via .user-picker-select but submitted normally #}
+          {{ form.shared_with }}
+
+          <div class="form-text">
+            Type a name or email, click a result to add it. Click <i class="bi bi-x-circle"></i> on a chip to remove.
+          </div>
+          {% if form.shared_with.errors %}
+          <div class="invalid-feedback d-block">{{ form.shared_with.errors.as_text }}</div>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end">
+          <a href="{% if artifact %}{% url 'artifact_detail' artifact.pk %}{% else %}{% url 'artifact_list' %}{% endif %}"
+             class="btn btn-outline-secondary">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>{{ action }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Visibility radio cards ────────────────────────────────────
+(function () {
+  const sharedBlock = document.getElementById('shared-with-block');
+  const radios = document.querySelectorAll('input[name="visibility"]');
+  function update() {
+    const checked = document.querySelector('input[name="visibility"]:checked');
+    const isShared = checked && checked.value === 'shared';
+    if (sharedBlock) sharedBlock.style.display = isShared ? '' : 'none';
+    document.querySelectorAll('.visibility-option').forEach(opt => {
+      opt.classList.toggle('selected', opt.dataset.value === (checked && checked.value));
+    });
+  }
+  radios.forEach(r => r.addEventListener('change', update));
+  update();
+})();
+
+// ── User picker (search + chips) ──────────────────────────────
+(function () {
+  const select   = document.getElementById('id_shared_with');
+  const search   = document.getElementById('user-picker-search');
+  const chipsEl  = document.getElementById('user-picker-chips');
+  const dropdown = document.getElementById('user-picker-dropdown');
+  if (!select || !search || !chipsEl || !dropdown) return;
+
+  // Build the user list once from the (hidden) <option> elements
+  const users = Array.from(select.options).map(opt => ({
+    value:   opt.value,
+    name:    opt.dataset.name    || opt.textContent.trim(),
+    email:   opt.dataset.email   || '',
+    initial: opt.dataset.initial || (opt.textContent.trim()[0] || '?').toUpperCase(),
+    option:  opt,
+  }));
+
+  function selectedValues() {
+    return Array.from(select.selectedOptions).map(o => o.value);
+  }
+
+  function renderChips() {
+    const selected = selectedValues();
+    chipsEl.innerHTML = '';
+    if (!selected.length) {
+      const empty = document.createElement('span');
+      empty.className = 'user-picker-empty text-muted small';
+      empty.textContent = 'No users selected yet…';
+      chipsEl.appendChild(empty);
+      return;
+    }
+    selected.forEach(val => {
+      const u = users.find(x => x.value === val);
+      if (!u) return;
+      const chip = document.createElement('span');
+      chip.className = 'user-chip';
+      chip.innerHTML = `
+        <span class="user-avatar-xs">${escapeHtml(u.initial)}</span>
+        <span class="user-chip-name">${escapeHtml(u.name)}</span>
+        ${u.email ? `<span class="user-chip-email text-muted">${escapeHtml(u.email)}</span>` : ''}
+        <button type="button" class="user-chip-remove" aria-label="Remove ${escapeHtml(u.name)}" data-value="${escapeHtml(u.value)}">
+          <i class="bi bi-x-lg"></i>
+        </button>`;
+      chipsEl.appendChild(chip);
+    });
+  }
+
+  function renderDropdown(query) {
+    const q = (query || '').trim().toLowerCase();
+    const selected = new Set(selectedValues());
+    const matches = users.filter(u => {
+      if (selected.has(u.value)) return false;
+      if (!q) return true;
+      return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    }).slice(0, 30);
+
+    if (!matches.length) {
+      dropdown.innerHTML = `
+        <div class="user-picker-empty-result text-muted small">
+          ${q
+            ? `No matches for &ldquo;<strong>${escapeHtml(q)}</strong>&rdquo;`
+            : (selected.size === users.length
+                ? 'All users are already selected.'
+                : 'No more users available.')}
+        </div>`;
+      dropdown.classList.remove('d-none');
+      return;
+    }
+
+    dropdown.innerHTML = matches.map(u => `
+      <button type="button" class="user-picker-item" data-value="${escapeHtml(u.value)}" role="option">
+        <span class="user-avatar-xs">${escapeHtml(u.initial)}</span>
+        <span class="user-picker-item-text">
+          <span class="user-picker-item-name">${highlight(u.name, q)}</span>
+          ${u.email ? `<span class="user-picker-item-email">${highlight(u.email, q)}</span>` : ''}
+        </span>
+        <i class="bi bi-plus-lg user-picker-item-add"></i>
+      </button>`).join('');
+    dropdown.classList.remove('d-none');
+  }
+
+  function addUser(value) {
+    const opt = users.find(u => u.value === value);
+    if (!opt) return;
+    opt.option.selected = true;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    renderChips();
+    renderDropdown(search.value);
+  }
+
+  function removeUser(value) {
+    const opt = users.find(u => u.value === value);
+    if (!opt) return;
+    opt.option.selected = false;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    renderChips();
+    if (!dropdown.classList.contains('d-none')) renderDropdown(search.value);
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+  }
+  function highlight(text, q) {
+    const safe = escapeHtml(text);
+    if (!q) return safe;
+    const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return safe.replace(re, '<mark>$1</mark>');
+  }
+
+  // ── Wire up events ──────────────────────────────────────────
+  search.addEventListener('focus', () => renderDropdown(search.value));
+  search.addEventListener('input', () => renderDropdown(search.value));
+  search.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape')       { dropdown.classList.add('d-none'); search.blur(); }
+    else if (e.key === 'Enter')   { e.preventDefault();
+                                    const first = dropdown.querySelector('.user-picker-item');
+                                    if (first) addUser(first.dataset.value); }
+    else if (e.key === 'Backspace' && !search.value) {
+      const sel = selectedValues();
+      if (sel.length) removeUser(sel[sel.length - 1]);
+    }
+  });
+
+  dropdown.addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.user-picker-item');
+    if (!item) return;
+    e.preventDefault();
+    addUser(item.dataset.value);
+    search.value = '';
+    search.focus();
+  });
+
+  chipsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.user-chip-remove');
+    if (!btn) return;
+    removeUser(btn.dataset.value);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#user-picker')) dropdown.classList.add('d-none');
+  });
+
+  // initial render
+  renderChips();
+})();
+</script>
+{% endblock %}

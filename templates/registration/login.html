@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in – Ganje</title>
+
+  <link rel="icon" type="image/x-icon"           href="{% static 'assets/img/favicons/favicon.ico' %}" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'assets/img/favicons/favicon-32x32.png' %}" />
+
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" />
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+</head>
+<body class="login-page">
+
+<main class="login-shell d-flex flex-column align-items-center justify-content-center min-vh-100 p-3">
+
+  <div class="login-card rounded-4 p-4 p-md-5">
+    <div class="text-center mb-4">
+      <img src="{% static 'assets/img/ganje-icon-transparent.png' %}" alt="Ganje" class="login-logo mb-2" />
+      <h1 class="h4 fw-bold mb-1">Welcome back</h1>
+      <p class="text-muted small mb-0">Sign in to continue to <strong>Ganje</strong> Research Explorer</p>
+    </div>
+
+    {% if messages %}
+      {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2 small" role="alert">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    {% endif %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger py-2 small mb-3">
+        {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}" />
+
+      <div class="mb-3">
+        <label for="{{ form.email.id_for_label }}" class="form-label fw-medium">
+          <i class="bi bi-envelope me-1"></i>Email
+        </label>
+        {{ form.email }}
+        {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors.as_text }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.password.id_for_label }}" class="form-label fw-medium">
+          <i class="bi bi-lock me-1"></i>Password
+        </label>
+        {{ form.password }}
+        {% if form.password.errors %}<div class="invalid-feedback d-block">{{ form.password.errors.as_text }}</div>{% endif %}
+      </div>
+
+      <div class="form-check mb-3">
+        {{ form.remember_me }}
+        <label for="{{ form.remember_me.id_for_label }}" class="form-check-label small">
+          Keep me signed in for 30 days
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg w-100 mb-2">
+        <i class="bi bi-box-arrow-in-right me-1"></i>Sign in
+      </button>
+    </form>
+
+    <hr class="my-4" />
+    <p class="text-center text-muted small mb-0">
+      Need an account? Ask an administrator to create one for you.
+    </p>
+  </div>
+
+  <p class="login-footer text-muted small mt-4">
+    Ganje Research Explorer &mdash; powered by Django &amp; Bootstrap 5
+  </p>
+</main>
+
+<script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

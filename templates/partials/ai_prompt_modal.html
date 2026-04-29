@@ -1,0 +1,146 @@
+<!-- ── AI Prompt Modal: Consolidate Chat ─────────────────────────
+     Ready-to-paste prompt to turn a long AI thread into Ganje fields.
+──────────────────────────────────────────────────────────────── -->
+<div class="modal fade" id="aiPromptModal" tabindex="-1" aria-labelledby="aiPromptModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content ai-prompt-modal">
+
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="aiPromptModalLabel">
+          <i class="bi bi-chat-square-text text-primary"></i>
+          Consolidate Chat
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="text-muted small mb-3">
+          Send this as your <strong>final message</strong> in a long AI chat. The model
+          synthesises one document with <code>=== SECTION ===</code> blocks you can paste
+          into <strong>New Artifact</strong> (and the version <strong>Prompt</strong> field).
+        </p>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <small class="text-muted">
+            Copy, paste into your AI tool, then paste the reply into Ganje.
+          </small>
+          <button type="button" class="btn btn-sm btn-primary copy-prompt-btn"
+                  data-target="prompt-consolidate">
+            <i class="bi bi-clipboard me-1"></i>Copy prompt
+          </button>
+        </div>
+<pre class="ai-prompt-block" id="prompt-consolidate" data-template="consolidate">We have now finished discussing this code study. Look back at our ENTIRE
+conversation in this thread and produce a single, unified research document.
+
+## Your task
+1. Read every question I asked and every answer you gave.
+2. Identify the underlying topic that emerged across all the questions
+   (even if I asked them in scattered order).
+3. Synthesise:
+   - One unified RESEARCH QUESTION that covers everything I asked.
+   - One unified ANALYSIS that organises your answers into a coherent
+     walkthrough — NOT a Q&amp;A transcript. Merge related findings, dedupe
+     overlap, fix any contradictions, and order things logically
+     (overview → details → caveats).
+   - A SYNTHESIZED PROMPT — a single self-contained prompt that, if I
+     gave it to a fresh AI session, would reproduce this analysis.
+4. Output in EXACTLY the format below with the `=== SECTION ===` delimiters.
+   Do not add any prose outside the sections.
+
+## Output format
+
+=== TITLE ===
+&lt;one-line title for the unified study, max 120 chars, no markdown&gt;
+
+=== DESCRIPTION ===
+&lt;2-3 sentence summary of what was studied across the chat&gt;
+
+=== CATEGORY ===
+&lt;one of: Architecture, Performance, Security, Refactoring, Bug, API, Other&gt;
+
+=== TAGS ===
+&lt;comma-separated keywords, max 6, lowercase&gt;
+
+=== CODEBASE_REF ===
+&lt;git commit hash, branch, or version tag if mentioned in the chat;
+ leave blank if unknown&gt;
+
+=== MODEL ===
+&lt;your model name, e.g. GPT-4o, Claude-3.5-Sonnet, Gemini-1.5-Pro&gt;
+
+=== PROMPT ===
+&lt;a single self-contained prompt that, given to a fresh AI session, would
+ reproduce this analysis. Include the codebase pointer, the unified
+ question, any important constraints I expressed during the chat, and
+ ask for the same output sections&gt;
+
+=== ANALYSIS ===
+# &lt;repeat the title here as an H1&gt;
+
+## Overview
+&lt;1-2 paragraph high-level summary of what the chat established&gt;
+
+## Key findings
+- bullet points consolidating all your answers
+- with concrete code references like `path/to/file.py:42`
+- group related findings, drop duplicates, resolve contradictions
+
+## Detailed walkthrough
+&lt;a single coherent narrative — NOT a Q&amp;A — explaining the topic step by
+ step. Use fenced code blocks for code snippets. Reorganise freely;
+ the original chat order is irrelevant&gt;
+
+## Caveats / open questions
+&lt;assumptions you made, things you were unsure about, follow-ups I should
+ verify manually, contradictions you couldn't resolve&gt;
+
+=== NOTES ===
+&lt;your meta-observations about the chat: did I keep changing direction?
+ did you have to guess at things I didn't tell you? what would have made
+ the study more reliable? leave blank if none&gt;
+</pre>
+        <div class="alert alert-info small mt-3 mb-0 d-flex gap-2 align-items-start">
+          <i class="bi bi-lightbulb mt-1"></i>
+          <div>
+            After the model replies, open <strong>New Artifact</strong> in Ganje and map each
+            <code>=== SECTION ===</code> to the matching field. Put <code>=== PROMPT ===</code>
+            in the version <strong>Prompt</strong> field so you can re-run the study later.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer justify-content-between">
+        <small class="text-muted">
+          Tip: keep the synthesised prompt in the <strong>Prompt</strong> field for reproducible re-runs.
+        </small>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modal = document.getElementById('aiPromptModal');
+  if (!modal) return;
+
+  modal.querySelectorAll('.copy-prompt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      navigator.clipboard.writeText(target.textContent).then(() => {
+        const original = btn.innerHTML;
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Copied to clipboard!';
+        setTimeout(() => {
+          btn.classList.remove('btn-success');
+          btn.classList.add('btn-primary');
+          btn.innerHTML = original;
+        }, 2200);
+      });
+    });
+  });
+})();
+</script>
