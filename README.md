@@ -1,4 +1,15 @@
-# CodeLab – Research Tracking
+<p align="center">
+  <img src="static/assets/img/ganje-icon-transparent.png" alt="Ganje logo" width="140" />
+</p>
+
+# Ganje – Research Tracking
+
+**Ganje** (Persian: **گنجه**) is the word for an old, valued treasury box—the kind
+of chest people used to lock away things worth keeping. In the world of large
+language models, the tokens we spend and the generated output we care about are
+a lot like that: easy to lose in a chat scroll, hard to reuse with confidence.
+This project is a place to **keep** those analyses: stored, **versioned**, and
+ready to revisit or re-run when your codebase moves on.
 
 A Django + Bootstrap 5 web application for documenting, versioning, and
 re-running AI-powered codebase analyses.
