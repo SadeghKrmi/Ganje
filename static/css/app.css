@@ -514,9 +514,11 @@ main { flex: 1; }
 .EasyMDEContainer .editor-toolbar button.bi-icon > i { display: none; }
 
 /* ── EasyMDE editor integration ─────────────────────────────── */
+/* Avoid overflow:hidden: it creates a scrollport that fights CodeMirror + preview sync,
+   and breaks predictable behaviour in side-by-side mode. Corners stay rounded on inner panes. */
 .EasyMDEContainer {
   border-radius: .5rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .EasyMDEContainer .editor-toolbar {
@@ -549,7 +551,7 @@ main { flex: 1; }
   color: var(--bs-body-color);
   font-family: "JetBrains Mono", "Fira Mono", monospace;
   font-size: .88rem;
-  /* Cap internal height so the editor scrolls instead of stretching the page */
+  /* Fixed viewport fraction so pane height does not jump when preview HTML reflows */
   height: 60vh !important;
   min-height: 320px;
   max-height: 60vh;
@@ -560,12 +562,7 @@ main { flex: 1; }
   overflow-y: auto !important;
 }
 
-/* Make the toolbar sticky to the top of the editor while you scroll inside */
-.EasyMDEContainer .editor-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
+/* Toolbar stays in normal flow — sticky + inner scroll sync caused visible page/editor jitter */
 
 /* Side-by-side / preview panes also respect the height cap */
 .EasyMDEContainer .editor-preview-side {
@@ -601,6 +598,8 @@ main { flex: 1; }
   background: var(--cl-card-bg);
   color: var(--bs-body-color);
   border: 1px solid var(--cl-border);
+  /* Prevent scroll anchoring when preview HTML updates (typing at end of doc) */
+  overflow-anchor: none;
 }
 
 /* ── User avatar + dropdown ─────────────────────────────────── */
